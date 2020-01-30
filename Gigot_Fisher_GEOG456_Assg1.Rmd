@@ -1,0 +1,152 @@
+---
+title: "Global Renewable Energy"
+author: "Nicholas Gigot and Skylar Fisher"
+date: "1/30/2020"
+output: 
+  html_document:
+    theme: simplex 
+    toc: true
+    toc_float: yes 
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(RColorBrewer)
+library(ggplot2)
+library(gganimate)
+library(dplyr)
+library(gifski)
+library(png)
+library(sp)
+library(raster)
+library(rgdal)
+library(tmap)
+library(tmaptools)
+library(spdep)
+library(rgeos)
+library(geosphere)
+library(spatstat)
+library(maptools)
+library(knitr)
+library(kableExtra)
+library(plotly)
+library(corrplot)
+library(shinyjs)
+library(ggalt)
+```
+
+*** 
+
+### Visualization I 
+
+Bar graph of solar energy generation by continent from 2000-2018. 
+
+Source: BP Statistical Review (2018), accessed via https://ourworldindata.org/renewable-energy. Data was downloaded as an Excel spreadsheet, and preprocessed by creating a pivot table with entities as rows and years as columns, and inserting a slicer to include only the years 2000-2018 and only the 6 inhabited continents. 
+
+```{r}
+# Read in preprocessed csv file. 
+sol3=read.csv("/Users/ngigot/Desktop/GEOG456/cleanedsolargenerationtable.csv")
+# Create bar plot of solar output by year and by continent. Set year as x axis, set solar output as y axis. Fill columns categorically by continent. Label axes, set theme, set color palette. Give bar plot a title. 
+plot1=ggplot(sol3, aes(x=Year, y=SolarOutput))+geom_col(aes(fill=Continent),width=.7) + labs(y="Solar Energy Generation (TWh)") + theme_minimal() + scale_fill_brewer(palette="Set1") + labs(title = "Global Solar Energy Growth")
+# Call plot. 
+plot1
+```
+
+### Visualization II
+
+Line graph of solar energy generation by continent from 2000-2018. 
+
+Source: BP Statistical Review (2018), accessed via https://ourworldindata.org/renewable-energy. Data was downloaded as an Excel spreadsheet, and preprocessed by creating a pivot table with entities as rows and years as columns, and inserting a slicer to include only the years 2000-2018 and only the 6 inhabited continents. 
+
+```{r}
+# Create line graph of solar output by year and by continent. Set year as x axis, set solar output as y axis. Color lines categorically by continent. Label axes, set theme, set color palette. Give line graph a title.
+plot2=ggplot(data=sol3, aes(x=Year, y=SolarOutput, group=Continent))+geom_line(aes(color=Continent))+labs(y="Solar Energy Generation (TWh)") + theme_minimal() + scale_fill_brewer(palette="Set1") + labs(title = "Global Solar Energy Growth")
+# Call graph.
+plot2
+```
+
+### Visualization III  
+
+Animated lollipop chart of solar energy generation by continent from 2000-2018. 
+
+Source: BP Statistical Review (2018), accessed via https://ourworldindata.org/renewable-energy. Data was downloaded as an Excel spreadsheet, and preprocessed by creating a pivot table with entities as rows and years as columns, and inserting a slicer to include only the years 2000-2018 and only the 6 inhabited continents.
+
+```{r}
+# Create chart of solar output by continent. Set continent as x-axis and set solar output as y-axis. Set label and color to Continent. Create points for each continent and create segments for each continent to make the lollipop chart. Give the points text. Animate the chart by setting year as the transition time and setting the easing as linear (each frame lasts the same amount of time). Set the theme and the color palette. 
+plot3=ggplot(sol3,
+       aes(x=Continent, y=SolarOutput, label=Continent, color=Continent)) + 
+  geom_point(stat='identity',size=15) + 
+  geom_segment(aes(
+    y=0,
+    x=Continent,
+    yend=SolarOutput,
+    xend=Continent)
+  ) + 
+  geom_text(color="black", size=3) + 
+  theme(legend.position = "none") +
+  labs(title = "Year: {frame_time}", y="Solar Energy Generation (TWh)") + transition_time(Year) + 
+  ease_aes('linear') + theme_minimal() + scale_fill_brewer(palette="Set2")
+# Call plot.
+plot3
+```
+
+### Visualization IV
+
+Interactive map of solar energy generation by continent in 2018. 
+
+Source: BP Statistical Review (2018), accessed through OurWorldInData.org, and Continent Shapefile (2015) accessed via https://www.arcgis.com/home/item.html?id=5cf4f223c4a642eb9aa7ae1216a04372. Map was downloaded, unzipped, and read in as a shapefile. The preprocessed data on solar output by continent and by year was modified to include solar output as percent of total and was also modified to include Antarctica and Oceania in order to match records for the join. 
+
+```{r}
+# Read in continents shapefile.
+continents=shapefile("/Users/ngigot/Desktop/GEOG456/continent shapefile/continent.shp")
+# Read in attribute table. 
+map=read.csv("/Users/ngigot/Desktop/GEOG456/mapattributetable.csv")
+# Create column in the attribute table for percent change in solar output between 2010 and 2018.
+map$perchange=100*(map$X2018-map$X2010)/map$X2010
+# Join attribute table to continents shapefile using the continent name columns as the key field. 
+mapcont=merge(continents, map, by.x="CONTINENT", by.y="Continent")
+# Set tmap mode to interactive viewing.
+tmap_mode("view")
+# Create interactive map using an ESRI basemap, make the map a choropleth map by assigning to each continent the value of its solar output as a percent of the world's total solar output. Give the legend a title, set the style, set the palette, adjust the border settings. Name the polygons based on their continent name. Set and name the pop-up variables to show solar generation, solar generation as a percent of total, and solar generation as a percent change from 2010 to 2018. Insert a scalebar and adjust the legend settings. 
+map1=tm_shape(mapcont) + tm_basemap("Esri.WorldGrayCanvas") + tm_polygons("X2018", title = "Solar Generation (% of Total)", style = "pretty", palette = "Greens", alpha = 1, border.col = "gray0", border.alpha = 0.6, id="CONTINENT", popup.vars = c("Solar Generation (% of Total)" = "X2018", "Solar Generation (TWh)" = "X2018Total", "Solar Generation (% Change 2010-2018)" = "perchange")) + tm_tiles("CartoDB.PositronOnlyLabels") + tm_scale_bar() + tm_view(view.legend.position = c("right", "bottom")) + tm_layout(legend.outside=TRUE) # Call the map.
+map1
+```
+
+### Visualization V
+
+Scatter plots of the number of patents and investment in various renewable energy technologies between 2004 and 2016. 
+
+Source: International Renewable Energy Agency (2016), accessed through https://ourworldindata.org/renewable-energy. Two spreadsheets were downloaded, one on the number of patents by year by technology and one on the investment by year by technology. The data was preprocessed by joining the spreadsheets together and inserting a pivot table with columns for technology, year, investment, and number of patents. Another spreadsheet was created with the logarithm of the investment and number of patent values. 
+
+```{r}
+# Read in the log investment and patent csv file. 
+patents=read.csv("/Users/ngigot/Desktop/GEOG456/patentsinvestments1.csv")
+# Read in the non-log investment and patent csv file.
+patents2=read.csv("/Users/ngigot/Desktop/GEOG456/patentsinvestments2.csv")
+# Create scatter plots of the log investment and patent data. Set log patent values as the x-axis and the log investment values as the y-axis. Categorize the plots by giving the different technologies different colors. Create a trend line using a linear model, add smoothed conditional means to better show pattern. Wrap the sequence of plots to save space. Set theme, set palette, give the plots a title and label the axes. 
+plot4=ggplot(patents, aes(Patents, Investment, col=Technology, frame = Year)) +
+  geom_point() +
+  geom_smooth(aes(group = Technology), 
+              method = "lm", 
+              show.legend = FALSE) +
+  facet_wrap(~Technology, scales = "free") + theme_minimal() + scale_fill_brewer(palette="Set1") + labs(title = "Renewable Energy Innovation and Investment (2004-2016)", x="Log of Number of Patents Filed ", y="Log of USD Invested")
+# Call plot. 
+plot4
+```
+
+### Visualization VI
+
+Animated scatter plot of the number of patents and investment in various renewable energy technologies between 2004 and 2016. 
+
+Source: International Renewable Energy Agency (2016), accessed through https://ourworldindata.org/renewable-energy. Two spreadsheets were downloaded, one on the number of patents by year by technology and one on the investment by year by technology. The data was preprocessed by joining the spreadsheets together and inserting a pivot table with columns for technology, year, investment, and number of patents. 
+
+```{r}
+# Create a scatter plot using the non-log investment and patent data. Set the number of patents as the x-axis and the investment values as the y-axis. Categorize the plots by giving the different technologies different colors. Animate the chart by setting year as the transition time and setting the easing as linear (each frame lasts the same amount of time). Set the theme and the color palette. 
+plot5=ggplot(patents2, aes(Patents, Investment, frame=Year, col=Technology, size=20)) + geom_point() + labs(title = "Year: {frame_time}", y="USD Invested", x="Number of Patents Filed") + transition_time(Year) + ease_aes('linear') + theme_minimal() + scale_fill_brewer(palette="Set2")
+# Call plot. 
+plot5
+```
